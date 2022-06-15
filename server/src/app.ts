@@ -1,3 +1,4 @@
+
 import { CREDENTIALS, LOG_FORMAT, NODE_ENV, ORIGIN, PORT } from '@config';
 import { connect, set } from 'mongoose';
 import { logger, stream } from '@utils/logger';
@@ -13,6 +14,12 @@ import helmet from 'helmet';
 import hpp from 'hpp';
 import morgan from 'morgan';
 import path from 'path';
+
+import passportMiddleware from '@middlewares/passport.middleware';
+import session from 'express-session';
+
+import discordService from '@services/discord.service'
+import passport from 'passport';
 
 class App {
   public app: express.Application;
@@ -68,6 +75,15 @@ class App {
         },
       }),
     );
+
+    passportMiddleware.init(this.app)
+    this.app.use(session({
+      secret:"SDAFAFJAOVJAOJV",
+      resave:false,
+      saveUninitialized: false,
+      cookie:{ maxAge:100000}
+    }))
+    this.app.use(passport.session())
     this.app.use(hpp());
     this.app.use(helmet());
     this.app.use(compression());

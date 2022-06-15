@@ -36,7 +36,8 @@
       "@routes/*": ["routes/*"],
       "@services/*": ["services/*"],
       "@views/*": ["services/*"],
-      "@utils/*": ["utils/*"]
+      "@utils/*": ["utils/*"],
+      "@repositories/*": ["repositories/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.json", ".env", "src/tsconfig.json"],

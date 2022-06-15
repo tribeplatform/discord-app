@@ -15,4 +15,8 @@ export const {
   LOG_FORMAT,
   LOG_DIR = '../logs',
   ORIGIN,
+  DISCORD_CLIENT_ID,
+  DISCORD_CLIENT_SECRET,
+  SERVER_URL,
+  BOT_TOKEN,
 } = process.env;

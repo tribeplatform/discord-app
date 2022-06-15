@@ -1,3 +1,5 @@
+import * as cheerio from 'cheerio';
+
 /**
  * @method isEmpty
  * @param {String | Number | Object} value
@@ -16,4 +18,19 @@ export const isEmpty = (value: string | number | object): boolean => {
   } else {
     return false;
   }
+};
+
+export const uniq = <T>(array: Array<T>): Array<T> => (array.length ? array.filter((value, index, self) => self.indexOf(value) === index) : array);
+
+export const toMap = <T>(array: Array<T>, key: string): Map<string, T> => new Map<string, T>(array.map(item => [item[key], item]));
+
+export const transformMentions = (html: string, baseUrl: string): string => {
+  let $ = cheerio.load(html);
+  $('a[data-type=mention]').each(function (i) {
+    const dataId = $(this).attr('data-id');
+    console.log(dataId);
+    if (dataId) $(this).attr('href', baseUrl + dataId);
+  });
+  console.log( $.html().toString())
+  return $.html().toString()
 };
