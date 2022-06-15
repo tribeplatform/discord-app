@@ -29,7 +29,7 @@ const init = (app: express.Application) => {
       },
       async (req: express.Request, accessToken: string, refreshToken: string,params: string, profile: any, done: VerifyCallback) => {
         try {
-
+          
           const incomingProfile: IncomingProfile = profile;
 
         
@@ -50,8 +50,9 @@ const init = (app: express.Application) => {
           discordService.sendWelcomeMessage(incomingProfile.channelId)
 
           done(null, data);
+
         } catch (err) {
-          logger.error('An error occured during the SlackStrategy handling');
+          logger.error('An error occured during the DiscordStrategy handling');
           logger.error(err);
           done(err, {});
         }
@@ -60,14 +61,10 @@ const init = (app: express.Application) => {
   );
 
   passport.serializeUser(function(user, done) {
-    console.log("serial");
-    console.log(user);
     done(null, user);
   });
   
   passport.deserializeUser(function(user, done) {
-    console.log("des");
-    console.log(user);
     done(null, user);
   });
   

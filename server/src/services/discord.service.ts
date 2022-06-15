@@ -1,6 +1,5 @@
 import { Client, Intents, MessageEmbed } from 'discord.js'
 import { Types } from '@tribeplatform/gql-client';
-import * as fs from 'fs'
 
 import { logger } from '@/utils/logger';
 import * as blockUtils from '@utils/blockParser';
@@ -43,9 +42,9 @@ class DiscordService {
         const imageServiceUrl = 'https://tribe-development.imgix.net'
 
         const sentences : string[] = [];
+        const components:any = [];
 
         try{
-            fs.writeFileSync("test.json",JSON.stringify(payload, null, 2))
             const dataToSend =  new MessageEmbed()
             .setColor('#0099ff')
             .setAuthor({ name:payload.network?.name, iconURL:(payload.network?.favicon as Types.Image)?.urls?.small, url:`https://${payload.network.domain}`})
@@ -61,6 +60,17 @@ class DiscordService {
                   sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined the community`);
                   break;
                 case 'moderation.created':
+                  components.push({
+                    type: 1,
+                    components: [
+                        {
+                            type: 2,
+                            style: 1,
+                            label: "Go to moderation",
+                            url: `https://${payload.network.domain}/settings/moderation`
+                        }
+                    ]
+                })
                   if (payload.post) {
                     sentences.push(`A post flagged for moderation`);
                   } else sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} was flagged for moderation`);
@@ -177,7 +187,10 @@ class DiscordService {
                 
             console.log({name:payload.network?.name, iconURL:(payload.network?.favicon as Types.Image)?.urls?.small, url:payload.network.domain});
 
-            await this.client.channels.cache.get(channelId).send({embeds: [dataToSend] })//'985644946830794803'
+            await this.client.channels.cache.get(channelId).send({
+              embeds: [dataToSend] ,
+              components,
+            })
 
         }catch(e){
 
