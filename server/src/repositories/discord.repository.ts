@@ -17,10 +17,6 @@ class DiscordRepository{
         }
 
     }
-
-    public async getProfileByNetworkId(networkId: string){
-        
-    }
 }
 
 export default new DiscordRepository()

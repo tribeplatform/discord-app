@@ -1,5 +1,5 @@
 
-import { CREDENTIALS, LOG_FORMAT, NODE_ENV, ORIGIN, PORT } from '@config';
+import { CREDENTIALS, LOG_FORMAT, NODE_ENV, ORIGIN, PORT, SESSION_SECRET } from '@config';
 import { connect, set } from 'mongoose';
 import { logger, stream } from '@utils/logger';
 import { Routes } from '@interfaces/routes.interface';
@@ -78,7 +78,7 @@ class App {
 
     passportMiddleware.init(this.app)
     this.app.use(session({
-      secret:"SDAFAFJAOVJAOJV",
+      secret:SESSION_SECRET,
       resave:false,
       saveUninitialized: false,
       cookie:{ maxAge:100000}
