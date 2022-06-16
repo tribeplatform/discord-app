@@ -9,6 +9,7 @@ import auth from '@/utils/auth';
 import { SERVER_URL } from '@/config';
 import { IncomingProfile } from '@/interfaces/incoming-profile.interface';
 import discordService from '@services/discord.service'
+import profileModel from '@/models/profile.model';
 
 const DEFAULT_SETTINGS = {
   webhooks: [],
@@ -46,6 +47,9 @@ class WebhookController {
         case 'SUBSCRIPTION':
           result = await this.handleSubscription(input);
           break;
+        case 'APP_UNINSTALLED':
+          result = await this.uninstall(input);
+          break;
       }
       res.status(200).json(result);
     } catch (error) {
@@ -65,7 +69,7 @@ class WebhookController {
    * TODO: Elaborate on this function
    */
   private async getSettings(input) {
-    
+
     const { networkId } = input;
 
     const currentSettings = input.currentSettings[0]?.settings || {};
@@ -271,8 +275,26 @@ class WebhookController {
           payload.post = post;
         }
         webhookUrls.forEach(({ channelId }) => discordService.sendDiscordMessage(channelId,payload));
-      } 
-      
+      }
+
+    return {
+      type: input.type,
+      status: 'SUCCEEDED',
+      data: {},
+    };
+  }
+
+  /**
+   *
+   * @param input
+   * @returns { type: input.type, status: 'SUCCEEDED', data: {} }
+   * TODO: Elaborate on this function
+   */
+  private async uninstall(input) {
+    const { networkId } = input as { networkId: string };
+    await profileModel.deleteMany({
+      networkId,
+    }).lean();
     return {
       type: input.type,
       status: 'SUCCEEDED',
