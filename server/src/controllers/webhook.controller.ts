@@ -8,8 +8,11 @@ import { getTribeClient, listMemberByIds } from '@/utils/tribe_client';
 import auth from '@/utils/auth';
 import { SERVER_URL } from '@/config';
 import { IncomingProfile } from '@/interfaces/incoming-profile.interface';
-import discordService from '@services/discord.service'
+import discordService from '@services/discord.service';
 import profileModel from '@/models/profile.model';
+import { Payload } from '@/type/payload.type';
+import { UpdateAction } from '@/enums/update-action.enum';
+import { WebhookResponse } from '@/dto/webhook-response.dto';
 
 const DEFAULT_SETTINGS = {
   webhooks: [],
@@ -18,7 +21,7 @@ const DEFAULT_SETTINGS = {
 };
 
 class WebhookController {
-  public index = async (req: Request, res: Response, next: NextFunction) => {
+  public index = async (req: Request, res: Response, next: NextFunction): Promise<WebhookResponse | any> => {
     const input = req.body;
 
     try {
@@ -68,7 +71,7 @@ class WebhookController {
    * @returns { type: input.type, status: 'SUCCEEDED', data: {} }
    * TODO: Elaborate on this function
    */
-  private async getSettings(input) {
+  private async getSettings(input): Promise<WebhookResponse> {
 
     const { networkId } = input;
 
@@ -80,6 +83,9 @@ class WebhookController {
     })
       .select('_id spaceIds memberId channelId channelName')
       .lean();
+
+    console.log('here');
+
 
     switch (input.context) {
       case Types.PermissionContext.NETWORK:
@@ -126,8 +132,6 @@ class WebhookController {
       },
     };
 
-    console.log(settings);
-
     return {
       type: input.type,
       status: 'SUCCEEDED',
@@ -141,13 +145,11 @@ class WebhookController {
    * @returns { type: input.type, status: 'SUCCEEDED', data: {} }
    * TODO: Elaborate on this function
    */
-   private async updateSettings(input) {
+  private async updateSettings(input): Promise<WebhookResponse> {
+
     const { networkId } = input;
-    const action = input?.data?.settings?.action;
-    const payload = input?.data?.settings?.payload;
-    console.log("update");
-    console.log(action);
-    console.log(networkId);
+    const action: UpdateAction = input?.data?.settings?.action;
+    const payload: any = input?.data?.settings?.payload;
 
     switch (action) {
       case 'DELETE_WEBHOOK':
@@ -172,7 +174,9 @@ class WebhookController {
         }
         break;
     }
+
     const settings = this.getSettings(input);
+
     return {
       type: input.type,
       status: 'SUCCEEDED',
@@ -186,12 +190,13 @@ class WebhookController {
    * @returns { type: input.type, status: 'SUCCEEDED', data: {} }
    * TODO: Elaborate on this function
    */
-  private async handleSubscription(input) {
+  private async handleSubscription(input): Promise<WebhookResponse> {
 
     const { networkId } = input as { networkId: string };
     const webhooks: IncomingProfile[] = await incomingProfileModel.find({
       networkId,
     }).lean();
+
     const { object } = input?.data as { object: any; networkId: string };
     const spaceId = object?.spaceId;
     const webhookUrls = webhooks
@@ -201,81 +206,82 @@ class WebhookController {
         return webhook;
       });
 
-      if (webhookUrls.length) {
-        const tribeClient = await getTribeClient({ networkId });
-        const network = await tribeClient.network.get('all');
-        const payload = {
-          event: input?.data?.name,
-          network,
-          context: true,
-        };
-        let memberId: string;
-        let spaceId: string;
-        let postId: string;
-        let actorId: string;
-        switch (input?.data?.name) {
-          case 'post.published':
-            postId = (object as Types.Post)?.id;
-            actorId = (object as Types.Post)?.createdById;
-            memberId = (object as Types.Post)?.createdById;
-            spaceId = (object as Types.Post)?.spaceId;
-            break;
-          case 'moderation.created':
-          case 'moderation.accepted':
-          case 'moderation.rejected':
-            if (object.entityType === Types.ModerationEntityType.POST) postId = object.entityId;
-            else if (object.entityType === Types.ModerationEntityType.MEMBER) memberId = object.createdById;
-            spaceId = object?.spaceId;
-            actorId = object?.moderatorId;
-            break;
-          case 'space_membership.created':
-          case 'space_membership.deleted':
-            memberId = object?.memberId;
-            spaceId = object?.spaceId;
-            actorId = input?.data?.actor?.id;
-            payload.context = false;
-            break;
-          case 'space_join_request.created':
-          case 'space_join_request.accepted':
-            memberId = object?.memberId;
-            spaceId = object?.spaceId;
-            actorId = object?.updatedById;
-            payload.context = false;
-            break;
-          case 'member_invitation.created':
-            payload.member = {
-              id: object?.id,
-              email: object?.inviteeEmail,
-              name: object?.inviteeName ? `${object?.inviteeName} (${object?.inviteeEmail})` : object?.inviteeEmail,
-              createdAt: object?.createdAt,
-              networkId: object?.networkId,
-            } as Types.Member;
-            actorId = object?.inviterId;
-            payload.context = false;
-            break;
-          case 'member.verified':
-            memberId = (object as Types.Member)?.id;
-            payload.context = false;
-            break;
-        }
-        if (memberId) {
-          const member = await tribeClient.members.get({ id: memberId }, 'all');
-          payload.member = member;
-        }
-        if (spaceId) {
-          const space = await tribeClient.spaces.get({ id: spaceId }, 'all');
-          payload.space = space;
-        }
-        if (actorId) {
-          const actor = await tribeClient.members.get({ id: actorId }, 'all');
-          payload.actor = actor;
-        }
-        if (postId) {
-          const post = await tribeClient.posts.get({ id: postId }, 'all');
-          payload.post = post;
-        }
-        webhookUrls.forEach(({ channelId }) => discordService.sendDiscordMessage(channelId,payload));
+    if (webhookUrls.length) {
+      const tribeClient = await getTribeClient({ networkId });
+      const network = await tribeClient.network.get('all');
+      const payload: Payload = {
+        event: input?.data?.name,
+        network,
+        context: true,
+      };
+
+      let memberId: string;
+      let spaceId: string;
+      let postId: string;
+      let actorId: string;
+      switch (input?.data?.name) {
+        case 'post.published':
+          postId = (object as Types.Post)?.id;
+          actorId = (object as Types.Post)?.createdById;
+          memberId = (object as Types.Post)?.createdById;
+          spaceId = (object as Types.Post)?.spaceId;
+          break;
+        case 'moderation.created':
+        case 'moderation.accepted':
+        case 'moderation.rejected':
+          if (object.entityType === Types.ModerationEntityType.POST) postId = object.entityId;
+          else if (object.entityType === Types.ModerationEntityType.MEMBER) memberId = object.createdById;
+          spaceId = object?.spaceId;
+          actorId = object?.moderatorId;
+          break;
+        case 'space_membership.created':
+        case 'space_membership.deleted':
+          memberId = object?.memberId;
+          spaceId = object?.spaceId;
+          actorId = input?.data?.actor?.id;
+          payload.context = false;
+          break;
+        case 'space_join_request.created':
+        case 'space_join_request.accepted':
+          memberId = object?.memberId;
+          spaceId = object?.spaceId;
+          actorId = object?.updatedById;
+          payload.context = false;
+          break;
+        case 'member_invitation.created':
+          payload.member = {
+            id: object?.id,
+            email: object?.inviteeEmail,
+            name: object?.inviteeName ? `${object?.inviteeName} (${object?.inviteeEmail})` : object?.inviteeEmail,
+            createdAt: object?.createdAt,
+            networkId: object?.networkId,
+          } as Types.Member;
+          actorId = object?.inviterId;
+          payload.context = false;
+          break;
+        case 'member.verified':
+          memberId = (object as Types.Member)?.id;
+          payload.context = false;
+          break;
       }
+      if (memberId) {
+        const member = await tribeClient.members.get({ id: memberId }, 'all');
+        payload.member = member;
+      }
+      if (spaceId) {
+        const space = await tribeClient.spaces.get({ id: spaceId }, 'all');
+        payload.space = space;
+      }
+      if (actorId) {
+        const actor = await tribeClient.members.get({ id: actorId }, 'all');
+        payload.actor = actor;
+      }
+      if (postId) {
+        const post = await tribeClient.posts.get({ id: postId }, 'all');
+        payload.post = post;
+      }
+      webhookUrls.forEach(({ channelId }) => discordService.sendDiscordMessage(channelId, payload));
+    }
 
     return {
       type: input.type,
@@ -290,7 +296,7 @@ class WebhookController {
    * @returns { type: input.type, status: 'SUCCEEDED', data: {} }
    * TODO: Elaborate on this function
    */
-  private async uninstall(input) {
+  private async uninstall(input): Promise<WebhookResponse> {
     const { networkId } = input as { networkId: string };
     await profileModel.deleteMany({
       networkId,

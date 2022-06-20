@@ -1,0 +1,4 @@
+export enum UpdateAction {
+  'DELETE_WEBHOOK' = 'DELETE_WEBHOOK',
+  'UPDATE_WEBHOOK' = 'UPDATE_WEBHOOK',
+}
