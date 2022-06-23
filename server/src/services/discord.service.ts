@@ -47,8 +47,6 @@ class DiscordService {
 
   public async sendDiscordMessage(channelId: string, payload: any) {
 
-    const components: any = [];
-
     try {
       const dataToSend = new MessageEmbed()
         .setColor('#0099ff')
@@ -71,7 +69,6 @@ class DiscordService {
         if (parent?.title) {
           sentences[0] =
             sentences[0] +
-            '\n\n ' +
             blockUtils.createHyperlink({
               text: `\n**${blockUtils.truncate(parent.title, TITLE_LENGTH_LIMIT)}**`,
               url: payload.post.url,
@@ -132,7 +129,7 @@ class DiscordService {
 
     switch (payload.event) {
       case 'post.published':
-        sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} added a ${payload.post.repliedToId ? 'reply' : 'post'}`);
+        sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} added a ${payload.post.repliedToId ? 'reply to:' : 'post to:'}`);
         break;
       case 'member.verified':
         sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined the community`);
@@ -215,8 +212,8 @@ class DiscordService {
 
     if (payload.post.attachments.length > 0) {
       for (let i = 0; i < payload.post.attachments.length; i++) {
-        const attachemnt = payload.post.attachments[i];
-        sentences.push(`:open_file_folder: [Download ${blockUtils.escapeText(attachemnt.extension)} file ](${attachemnt.url})`);
+        const attachment = payload.post.attachments[i];
+        sentences.push(`:open_file_folder: [Download ${blockUtils.escapeText(attachment.extension)} file ](${attachment.url})`);
       }
     }
 
