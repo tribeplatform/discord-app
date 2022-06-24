@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
 import auth from '@utils/auth';
+
 class AuthController {
   public webhookAuth = async (req: Request, res: Response, next: NextFunction) => {
     const { jwt, member, spaceIds, redirect = '/' } = req.query;
@@ -14,21 +15,22 @@ class AuthController {
         res.status(403).json({ success: false, message: `You don't have access to this page.` });
         return;
       }
-      const state = Buffer.from(JSON.stringify({ n: decodedJwt.sub, m: member, s: spaceIds, r: redirect }), 'ascii').toString('base64');
+      const state = Buffer.from(JSON.stringify({
+        n: decodedJwt.sub,
+        m: member,
+        s: spaceIds,
+        r: redirect,
+      }), 'ascii').toString('base64');
 
-      
+      // @ts-ignore
       passport.authorize('discord', {
-        permissions:2048,
+        permissions: 2048,
         state,
       })(req, res, next);
     } catch (error) {
       next(error);
     }
   };
-
-  public async discordOauth2(scopes, permissions){
-    
-  }
 
   public webhookAuthCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
