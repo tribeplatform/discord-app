@@ -84,8 +84,6 @@ class WebhookController {
       .select('_id spaceIds memberId channelId channelName')
       .lean();
 
-    console.log('here');
-
 
     switch (input.context) {
       case Types.PermissionContext.NETWORK:
