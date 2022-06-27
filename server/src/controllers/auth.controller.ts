@@ -21,10 +21,8 @@ class AuthController {
         s: spaceIds,
         r: redirect,
       }), 'ascii').toString('base64');
-
-      // @ts-ignore
+      
       passport.authorize('discord', {
-        permissions: 2048,
         state,
       })(req, res, next);
     } catch (error) {
