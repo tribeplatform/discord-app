@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+
 config({ path: `.env` });
 
 export const CREDENTIALS = process.env.CREDENTIALS === 'true';
@@ -19,5 +20,4 @@ export const {
   DISCORD_CLIENT_SECRET,
   SERVER_URL,
   BOT_TOKEN,
-  SESSION_SECRET,
 } = process.env;
