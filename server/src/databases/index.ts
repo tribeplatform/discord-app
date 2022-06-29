@@ -6,5 +6,6 @@ export const dbConnection = DB_HOST && {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useFindAndModify: false,
+    useCreateIndex: true,
   },
 };
