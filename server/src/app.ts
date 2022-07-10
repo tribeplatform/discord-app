@@ -15,10 +15,6 @@ import morgan from 'morgan';
 import path from 'path';
 
 import passportMiddleware from '@middlewares/passport.middleware';
-import session from 'express-session';
-
-import discordService from '@services/discord.service';
-import passport from 'passport';
 
 class App {
   public app: express.Application;
