@@ -15,7 +15,9 @@ export const sign = (options: { networkId: string }) => {
   );
 };
 export const verify = (token: string) => {
-  return jwt.verify(token, '3cf0e21656324b4a89ebe9942d236a1e');
+  return jwt.verify(token, CLIENT_SECRET, {
+    ignoreExpiration: false,
+  });
 };
 
 export default{
