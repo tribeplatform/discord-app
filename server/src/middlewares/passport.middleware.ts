@@ -1,4 +1,4 @@
-import { DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET } from '@config';
+import { DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SERVER_URL } from '@config';
 
 import passport from 'passport';
 import express from 'express';
@@ -18,7 +18,7 @@ const init = (app: express.Application) => {
         clientID: DISCORD_CLIENT_ID,
         clientSecret: DISCORD_CLIENT_SECRET,
         scope: ['identify', 'bot', 'guilds', 'webhook.incoming'],
-        callbackURL: '/api/discord/webhook/auth/callback',
+        callbackURL: `${SERVER_URL}/api/discord/webhook/auth/callback`,
         passReqToCallback: true,
       },
       async (req: express.Request, accessToken: string, refreshToken: string, params: any, profile: any, done: VerifyCallback) => {
