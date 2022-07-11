@@ -17,7 +17,7 @@ const init = (app: express.Application) => {
       {
         clientID: DISCORD_CLIENT_ID,
         clientSecret: DISCORD_CLIENT_SECRET,
-        scope: ['identify', 'bot', 'guilds', 'webhook.incoming'],
+        scope: ['identify', 'email', 'bot', 'guilds', 'webhook.incoming'],
         callbackURL: `${SERVER_URL}/api/discord/webhook/auth/callback`,
         passReqToCallback: true,
       },
@@ -25,8 +25,7 @@ const init = (app: express.Application) => {
         try {
 
           const incomingProfile: IncomingProfile = profile;
-
-
+          
           let buff = Buffer.from(String(req.query.state), 'base64');
           const {
             n: networkId,
