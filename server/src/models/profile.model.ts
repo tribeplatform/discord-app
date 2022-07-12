@@ -22,7 +22,7 @@ const IncomingProfileSchema: Schema = new Schema({
   },
   channelName: {
     type: String,
-    required: true,
+    required: false,
   },
   token: {
     type: String,
@@ -39,7 +39,7 @@ const IncomingProfileSchema: Schema = new Schema({
   },
   email: {
     type: String,
-    required: true,
+    required: false,
   },
   verified: {
     type: String,
@@ -57,7 +57,7 @@ const IncomingProfileSchema: Schema = new Schema({
   },
   guilds: {
     type: [guildSchema],
-    required: true,
+    required: false,
   },
   networkId: {
     type: String,

@@ -26,11 +26,9 @@ export const toMap = <T>(array: Array<T>, key: string): Map<string, T> => new Ma
 
 export const transformMentions = (html: string, baseUrl: string): string => {
   let $ = cheerio.load(html);
-  $('a[data-type=mention]').each(function (i) {
+  $('a[data-type=mention]').each(function(i) {
     const dataId = $(this).attr('data-id');
-    console.log(dataId);
     if (dataId) $(this).attr('href', baseUrl + dataId);
   });
-  console.log( $.html().toString())
-  return $.html().toString()
+  return $.html().toString();
 };
