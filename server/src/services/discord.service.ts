@@ -6,6 +6,7 @@ import * as blockUtils from '@utils/blockParser';
 import * as utils from '@utils/util';
 
 import { BOT_TOKEN } from '@/config';
+import { DiscordFooter } from '@/type/discord-footer.type';
 
 const TITLE_LENGTH_LIMIT = 100;
 const CONTENT_LENGTH_LIMIT = 250;
@@ -62,12 +63,22 @@ class DiscordService {
           iconURL: (payload.network?.favicon as Types.Image)?.urls?.small,
           url: `https://${payload.network?.domain}`,
         })
-        .setThumbnail(payload.member?.profilePicture?.url || null)
-        .setTimestamp()
-        .setFooter({
-          text: ` ${(payload.space?.name) ? 'Space: ' + payload.space.name : 'General Message'}}`,
-          iconURL: payload.space?.banner?.url || null,
-        });
+        .setTimestamp();
+
+      if (payload.member?.profilePicture?.url) {
+        dataToSend.setThumbnail(payload.member.profilePicture.url);
+      }
+
+      if (payload?.space?.name) {
+        let footer: DiscordFooter = {
+          text: `Space: ${payload.space.name}`,
+        };
+        if (payload.space?.banner?.url) {
+          footer.iconURL = payload.space.banner.url;
+        }
+        dataToSend.setFooter(footer);
+      }
+
 
       let { sentences, components, title } = this.sentenceBuilder(payload);
 
