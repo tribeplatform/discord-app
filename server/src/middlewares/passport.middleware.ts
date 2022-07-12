@@ -25,13 +25,15 @@ const init = (app: express.Application) => {
         try {
 
           const incomingProfile: IncomingProfile = profile;
-          
+
           let buff = Buffer.from(String(req.query.state), 'base64');
           const {
             n: networkId,
             m: memberId,
             s: spaceIds,
           } = JSON.parse(buff.toString('ascii')) as { n: string; m: string; s: string };
+
+          const channelInfo = await discordService.getChannelInfo(params?.webhook?.channel_id);
 
           incomingProfile.refreshToken = refreshToken;
           incomingProfile.networkId = networkId;
@@ -40,7 +42,9 @@ const init = (app: express.Application) => {
           incomingProfile.webhookId = params?.webhook?.id;
           incomingProfile.channelId = params?.webhook?.channel_id;
           incomingProfile.token = params?.webhook?.token;
-          incomingProfile.channelName = params?.webhook?.name;
+          incomingProfile.channelName = channelInfo?.name;
+
+          logger.info(`REGISTER A NEW USER ${JSON.stringify(incomingProfile)}`)
 
           const data = await DiscordRepository.insertProfileData(incomingProfile);
 
