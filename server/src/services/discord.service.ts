@@ -162,7 +162,7 @@ class DiscordService {
         sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} added a ${payload.post.repliedToId ? 'reply to:' : 'post to:'}`);
         break;
       case 'member.verified':
-        title = `${payload.member} joined the community`;
+        title = `${payload.member.name} joined the community`;
         sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined the community`);
         break;
       case 'moderation.created':
@@ -181,28 +181,28 @@ class DiscordService {
           title = `A post flagged for moderation`;
           sentences.push(`A post flagged for moderation`);
         } else {
-          title = `${payload.member} was flagged for moderation`;
+          title = `${payload.member.name} was flagged for moderation`;
           sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} was flagged for moderation`);
         }
         break;
       case 'moderation.rejected':
         if (payload.post) {
-          title = `${payload.actor} approved this post`;
+          title = `${payload.actor.name} approved this post`;
           sentences.push(`${blockUtils.createEntityHyperLink(payload.actor)} approved this post`);
         }
         break;
       case 'moderation.accepted':
         if (payload.post) {
-          title = `${payload.actor} rejected this post`;
+          title = `${payload.actor.name} rejected this post`;
           sentences.push(`${blockUtils.createEntityHyperLink(payload.actor)} rejected this post`);
         }
         break;
       case 'space_membership.created':
         if (payload?.member?.id === payload?.actor?.id) {
-          title = `${payload.member} joined ${payload.space}`;
+          title = `${payload.member.name} joined ${payload.space.name}`;
           sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined ${blockUtils.createEntityHyperLink(payload.space)}`);
         } else {
-          title = `${payload.actor} added ${payload.member} to ${payload.space}`,
+          title = `${payload.actor.name} added ${payload.member.name} to ${payload.space.name}`,
             sentences.push(
               `${blockUtils.createEntityHyperLink(payload.actor)} added ${blockUtils.createEntityHyperLink(
                 payload.member,
@@ -212,10 +212,10 @@ class DiscordService {
         break;
       case 'space_membership.deleted':
         if (payload?.member?.id === payload?.actor?.id) {
-          title = `${payload?.member} left ${payload?.space}`;
+          title = `${payload?.member.name} left ${payload?.space.name}`;
           sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} left ${blockUtils.createEntityHyperLink(payload.space)}`);
         } else {
-          title = `${payload.actor} removed ${payload.member} from ${payload.space}`;
+          title = `${payload.actor.name} removed ${payload.member.name} from ${payload.space.name}`;
           sentences.push(
             `${blockUtils.createEntityHyperLink(payload.actor)} removed ${blockUtils.createEntityHyperLink(
               payload.member,
@@ -224,11 +224,11 @@ class DiscordService {
         }
         break;
       case 'space_join_request.created':
-        title = `${payload.member} requested to join ${payload.space}`;
+        title = `${payload.member.name} requested to join ${payload.space.name}`;
         sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} requested to join ${blockUtils.createEntityHyperLink(payload.space)}`);
         break;
       case 'space_join_request.accepted':
-        title = `${payload.actor} accepted ${payload.member}'s join request to ${payload.space}`;
+        title = `${payload.actor.name} accepted ${payload.member.name}'s join request to ${payload.space.name}`;
         sentences.push(
           `${blockUtils.createEntityHyperLink(payload.actor)} accepted ${blockUtils.createEntityHyperLink(
             payload.member,
@@ -236,7 +236,7 @@ class DiscordService {
         );
         break;
       case 'member_invitation.created':
-        title = `${payload?.actor} invited ${payload?.member?.name} to the community`;
+        title = `${payload?.actor.name} invited ${payload?.member?.name} to the community`;
         sentences.push(`${blockUtils.createEntityHyperLink(payload.actor)} invited ${payload?.member?.name} to the community`);
         break;
     }
