@@ -15,6 +15,7 @@ export const createQuote = (text: string) => `> ${text}`;
 
 export const parseHtml = (text: string) => NodeHtmlMarkdown.translate(text);
 
+export const getEntityName = (entity: Types.Member | Types.Space): string => entity?.name || '';
 
 export const escapeText = (text: string): string => text.replace('>', '').replace('<', '').replace('&', '');
 
