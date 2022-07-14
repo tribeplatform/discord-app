@@ -12,6 +12,7 @@ import { getEntityName } from '@utils/blockParser';
 const TITLE_LENGTH_LIMIT = 100;
 const CONTENT_LENGTH_LIMIT = 250;
 const IMAGE_SERVICE_URL = 'https://tribe-s3-production.imgix.net';
+const MAXIMUM_TIME_FOR_DEFAULT_SPACES = 50 * 1000;
 
 class DiscordService {
 
@@ -82,6 +83,9 @@ class DiscordService {
 
 
       let { sentences, components, title } = this.sentenceBuilder(payload);
+
+      if (!sentences.length)
+        return;
 
       logger.info(`GENERATED SENTENCE ${JSON.stringify(sentences)}`);
 
@@ -159,7 +163,7 @@ class DiscordService {
 
     switch (payload.event) {
       case 'post.published':
-        title = `A new ${payload.post.repliedToId ? 'replay' : 'post'} has been added to the community`;
+        title = `A new ${payload.post.repliedToId ? 'reply' : 'post'} has been added to the community`;
         sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} added a ${payload.post.repliedToId ? 'reply to:' : 'post to:'}`);
         break;
       case 'member.verified':
@@ -200,8 +204,10 @@ class DiscordService {
         break;
       case 'space_membership.created':
         if (payload?.member?.id === payload?.actor?.id) {
-          title = `${getEntityName(payload.member)} joined ${getEntityName(payload.space)}`;
-          sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined ${blockUtils.createEntityHyperLink(payload.space)}`);
+          if (!this.isRecentlyJoined(payload)) {
+            title = `${getEntityName(payload.member)} joined ${getEntityName(payload.space)}`;
+            sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined ${blockUtils.createEntityHyperLink(payload.space)}`);
+          }
         } else {
           title = `${getEntityName(payload.actor)} added ${getEntityName(payload.member)} to ${getEntityName(payload.space)}`,
             sentences.push(
@@ -287,6 +293,15 @@ class DiscordService {
     }
     return sentences;
 
+  }
+
+  private isRecentlyJoined(payload) {
+    if (payload.member) {
+      if (Math.abs(new Date().getTime() - new Date(payload.member.createdAt).getTime()) < MAXIMUM_TIME_FOR_DEFAULT_SPACES) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
