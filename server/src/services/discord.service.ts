@@ -84,6 +84,9 @@ class DiscordService {
 
       let { sentences, components, title } = this.sentenceBuilder(payload);
 
+      if (!sentences.length)
+        return;
+
       logger.info(`GENERATED SENTENCE ${JSON.stringify(sentences)}`);
 
       const text = sentences[0];
