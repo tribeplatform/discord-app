@@ -222,12 +222,14 @@ class DiscordService {
           title = `${getEntityName(payload?.member)} left ${getEntityName(payload?.space)}`;
           sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} left ${blockUtils.createEntityHyperLink(payload.space)}`);
         } else {
-          title = `${getEntityName(payload.actor)} removed ${getEntityName(payload.member)} from ${getEntityName(payload.space)}`;
-          sentences.push(
-            `${blockUtils.createEntityHyperLink(payload.actor)} removed ${blockUtils.createEntityHyperLink(
-              payload.member,
-            )} from ${blockUtils.createEntityHyperLink(payload.space)}`,
-          );
+          if(!this.isDeleted(payload)){
+            title = `${getEntityName(payload.actor)} removed ${getEntityName(payload.member)} from ${getEntityName(payload.space)}`;
+            sentences.push(
+              `${blockUtils.createEntityHyperLink(payload.actor)} removed ${blockUtils.createEntityHyperLink(
+                payload.member,
+              )} from ${blockUtils.createEntityHyperLink(payload.space)}`,
+            );            
+          }
         }
         break;
       case 'space_join_request.created':
@@ -302,6 +304,9 @@ class DiscordService {
       }
     }
     return false;
+  }
+  private isDeleted(payload) {
+    return payload?.member?.name === 'Deleted Member';
   }
 }
 
