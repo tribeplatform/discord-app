@@ -163,7 +163,7 @@ class DiscordService {
 
     switch (payload.event) {
       case 'post.published':
-        title = `A new ${payload.post.repliedToId ? 'reply' : 'post'} has been added to the community`;
+        title = `${blockUtils.createEntityHyperLink(payload.member)} added a ${payload.post.repliedToId ? 'reply' : 'post'}`;
         sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} added a ${payload.post.repliedToId ? 'reply to:' : 'post to:'}`);
         break;
       case 'member.verified':
