@@ -1,4 +1,4 @@
-import { Client, Intents, MessageEmbed } from 'discord.js';
+import { Client, Intents, MessageActionRow, MessageButton, MessageEmbed } from 'discord.js';
 import { Types } from '@tribeplatform/gql-client';
 
 import { logger } from '@/utils/logger';
@@ -58,6 +58,7 @@ class DiscordService {
 
     try {
       logger.info('GENERATING EMBED');
+      const components = new MessageActionRow()
       const dataToSend = new MessageEmbed()
         .setColor('#0099ff')
         .setAuthor({
@@ -82,7 +83,7 @@ class DiscordService {
       }
 
 
-      let { sentences, components, title } = this.sentenceBuilder(payload);
+      let { sentences, title } = this.sentenceBuilder(payload,components);
 
       if (!sentences.length)
         return;
@@ -141,10 +142,11 @@ class DiscordService {
 
       logger.info('FETCHING CHANNEL NAME');
 
+
       await this.client.channels.cache.get(channelId).send({
         content: title,
         embeds: [dataToSend],
-        components,
+        components:[components],
       });
 
     } catch (e) {
@@ -154,16 +156,15 @@ class DiscordService {
     }
   }
 
-  private sentenceBuilder(payload: any): { sentences: string[], components: any [], title: string } {
+  private sentenceBuilder(payload: any,components: MessageActionRow): { sentences: string[], components: MessageActionRow, title: string } {
 
     const sentences: string[] = [];
-    const components: any[] = [];
     let title = '';
     logger.info(`EVENT ON ${payload.event}`);
 
     switch (payload.event) {
       case 'post.published':
-        title = `A new ${payload.post.repliedToId ? 'reply' : 'post'} has been added to the community`;
+        title = `${blockUtils.getEntityName(payload.member)} added a new ${payload.post.repliedToId ? 'reply' : 'post'} to ${getEntityName(payload.space)}`;
         sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} added a ${payload.post.repliedToId ? 'reply to:' : 'post to:'}`);
         break;
       case 'member.verified':
@@ -171,17 +172,12 @@ class DiscordService {
         sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined the community`);
         break;
       case 'moderation.created':
-        components.push({
-          type: 1,
-          components: [
-            {
-              type: 2,
-              style: 1,
-              label: 'Go to moderation',
-              url: `https://${payload.network.domain}/settings/moderation`,
-            },
-          ],
-        });
+        components.addComponents(
+          new MessageButton()
+              .setLabel('Go to moderation')
+              .setURL(`https://${payload.network.domain}/settings/moderation`)
+              .setStyle('LINK'),
+          );
         if (payload.post) {
           title = `A post flagged for moderation`;
           sentences.push(`A post flagged for moderation`);
