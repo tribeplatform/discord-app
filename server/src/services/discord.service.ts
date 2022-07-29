@@ -142,12 +142,17 @@ class DiscordService {
 
       logger.info('FETCHING CHANNEL NAME');
 
+    
+      const toSendObject = {
+        content:title,
+        embeds:[dataToSend]
+      }
 
-      await this.client.channels.cache.get(channelId).send({
-        content: title,
-        embeds: [dataToSend],
-        components:[components],
-      });
+      if(components.components.length){
+        Object.assign(toSendObject,{components:[components]})
+      }
+
+      await this.client.channels.cache.get(channelId).send(toSendObject);
 
     } catch (e) {
 
