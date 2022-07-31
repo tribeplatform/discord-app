@@ -44,18 +44,19 @@ const init = (app: express.Application) => {
           incomingProfile.token = params?.webhook?.token;
           incomingProfile.channelName = channelInfo?.name;
 
+          await discordService.sendWelcomeMessage(incomingProfile.channelId);
+
           logger.info(`REGISTER A NEW USER ${JSON.stringify(incomingProfile)}`)
 
           const data = await DiscordRepository.insertProfileData(incomingProfile);
 
-          await discordService.sendWelcomeMessage(incomingProfile.channelId);
 
           done(null, data);
 
         } catch (err) {
           logger.error('An error occured during the DiscordStrategy handling');
           logger.error(err);
-          done(err, {});
+          done(err);
         }
       },
     ),

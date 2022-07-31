@@ -20,4 +20,5 @@ export const {
   DISCORD_CLIENT_SECRET,
   SERVER_URL,
   BOT_TOKEN,
+  APP_SETTING_URL,
 } = process.env;

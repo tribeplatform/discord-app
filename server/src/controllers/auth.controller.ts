@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
 import auth from '@utils/auth';
+import { APP_SETTING_URL } from '@/config';
 
 class AuthController {
   public webhookAuth = async (req: Request, res: Response, next: NextFunction) => {
@@ -48,14 +49,9 @@ class AuthController {
   };
   public webhookAuthFailure = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      let buff = Buffer.from(String(req.query.state), 'base64');
-      const { r: redirect } = JSON.parse(buff.toString('ascii')) as { r: string };
-      if (!!redirect) {
-        return res.redirect(redirect);
-      }
-      res.status(200).json({
-        success: false,
-      });
+      const message = "The request has been canceled by the requestor"
+      const code = -1
+      res.redirect(`${APP_SETTING_URL}?error=true&message=${encodeURIComponent(message)}&code=${code}`)
     } catch (error) {
       next(error);
     }
