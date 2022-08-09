@@ -1,6 +1,5 @@
 import e, { NextFunction, Request, Response } from 'express';
 import { logger } from '@utils/logger';
-import { APP_SETTING_URL } from '@/config';
 
 const errorMiddleware = (error: any, req: Request, res: Response, next: NextFunction) => {
   try {
@@ -8,9 +7,13 @@ const errorMiddleware = (error: any, req: Request, res: Response, next: NextFunc
     let code:number = -1
 
     if(error.oauthError){ //Internal OAuth Error
-      const err = JSON.parse(error.oauthError.data);
-      code = err.code;
-      message = err.message;
+      if(error.oauthError.data){
+        const err = JSON.parse(error.oauthError.data);
+        code = err.code;
+        message = err.message;
+      }
+      code = -1;
+      message = "Unknown Error";
   }
     else{
       const status: number = error.status || 500;
@@ -18,7 +21,9 @@ const errorMiddleware = (error: any, req: Request, res: Response, next: NextFunc
       code = error.code || 0
       logger.error(`[${req.method}] ${req.path} >> Code:: ${code} StatusCode:: ${status}, Message:: ${message}`);
     }
-    res.redirect(`${APP_SETTING_URL}?error=true&message=${encodeURIComponent(message)}&code=${code}`)
+    const decodedData = JSON.parse(Buffer.from(req.query.state as string, 'base64').toString('binary'));
+
+    res.redirect(`${decodedData.r}?error=true&message=${encodeURIComponent(message)}&code=${code}`)
 
 
   } catch (error) {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Routes } from '@interfaces/routes.interface';
 import AuthController from '@controllers/auth.controller';
 import passport from 'passport';
+import setCallback from './../middlewares/set-callback.middleware'
 
 class AuthRoute implements Routes {
   public path = '/api/discord';
@@ -16,7 +17,7 @@ class AuthRoute implements Routes {
     const webhookPath = `${this.path}/webhook`;
 
     this.router.get(`${webhookPath}/auth`, this.authController.webhookAuth);
-    this.router.get(`${webhookPath}/auth/callback`, passport.authorize('discord', { failureRedirect: `${webhookPath}/auth/callback/failure` }), this.authController.webhookAuthCallback);
+    this.router.get(`${webhookPath}/auth/callback`, setCallback(webhookPath), this.authController.webhookAuthCallback);
     this.router.get(`${webhookPath}/auth/callback/failure`, this.authController.webhookAuthFailure);
 
   }

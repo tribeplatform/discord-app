@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
 import auth from '@utils/auth';
-import { APP_SETTING_URL } from '@/config';
 
 class AuthController {
   public webhookAuth = async (req: Request, res: Response, next: NextFunction) => {
@@ -51,7 +50,7 @@ class AuthController {
     try {
       const message = "The request has been canceled by the requestor"
       const code = -1
-      res.redirect(`${APP_SETTING_URL}?error=true&message=${encodeURIComponent(message)}&code=${code}`)
+      res.redirect(`${req.query.community_url}error=true&message=${encodeURIComponent(message)}&code=${code}`)
     } catch (error) {
       next(error);
     }
