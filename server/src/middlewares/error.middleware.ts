@@ -18,10 +18,19 @@ const errorMiddleware = (error: any, req: Request, res: Response, next: NextFunc
     else{
       const status: number = error.status || 500;
       message = error.message || 'Something went wrong';
-      code = error.code || 0
+      code = parseInt(error.code) || 0
       logger.error(`[${req.method}] ${req.path} >> Code:: ${code} StatusCode:: ${status}, Message:: ${message}`);
     }
     const decodedData = JSON.parse(Buffer.from(req.query.state as string, 'base64').toString('binary'));
+
+    //customize errors
+    switch (code) {
+      case 50001:
+        message = 'You have to select a public channel to make a connection'
+        break
+      default:
+        break
+    }
 
     res.redirect(`${decodedData.r}?error=true&message=${encodeURIComponent(message)}&code=${code}`)
 
