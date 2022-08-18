@@ -48,14 +48,9 @@ class AuthController {
   };
   public webhookAuthFailure = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      let buff = Buffer.from(String(req.query.state), 'base64');
-      const { r: redirect } = JSON.parse(buff.toString('ascii')) as { r: string };
-      if (!!redirect) {
-        return res.redirect(redirect);
-      }
-      res.status(200).json({
-        success: false,
-      });
+      const message = "The request has been canceled by the requestor"
+      const code = -1
+      res.redirect(`${req.query.community_url}error=true&message=${encodeURIComponent(message)}&code=${code}`)
     } catch (error) {
       next(error);
     }
