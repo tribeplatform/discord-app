@@ -1,13 +1,14 @@
 import { Client, Intents, MessageActionRow, MessageButton, MessageEmbed } from 'discord.js';
 import { Types } from '@tribeplatform/gql-client';
 
-import { logger } from '@/utils/logger';
+import { createLogger } from '@/utils/logger';
 import * as blockUtils from '@utils/blockParser';
 import * as utils from '@utils/util';
 
 import { BOT_TOKEN } from '@/config';
 import { DiscordFooter } from '@/type/discord-footer.type';
 import { getEntityName } from '@utils/blockParser';
+import { Logger } from '@tribeplatform/node-logger';
 
 const TITLE_LENGTH_LIMIT = 100;
 const CONTENT_LENGTH_LIMIT = 250;
@@ -15,47 +16,37 @@ const IMAGE_SERVICE_URL = 'https://tribe-s3-production.imgix.net';
 const MAXIMUM_TIME_FOR_DEFAULT_SPACES = 50 * 1000;
 
 class DiscordService {
-
+  private readonly logger: Logger;
 
   private client;
   private isAppReady: boolean;
 
   constructor() {
-
+    this.logger = createLogger(DiscordService.name);
     this.isAppReady = false;
 
     this.client = new Client({
-      intents: [
-        Intents.FLAGS.GUILDS,
-        Intents.FLAGS.GUILD_MESSAGES,
-      ],
+      intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
     });
 
     this.client.login(BOT_TOKEN);
 
     this.client.once('ready', async () => {
-
       this.isAppReady = true;
-
     });
-
-
   }
 
   public async sendWelcomeMessage(channelId) {
-
-    await this.client.channels.cache.get(channelId).send('Hi there, *Community Bot* is here! I would inform you on community updates in this channel.');
-
+    await this.client.channels.cache
+      .get(channelId)
+      .send('Hi there, *Community Bot* is here! I would inform you on community updates in this channel.');
   }
 
   public async getChannelInfo(channelId: string) {
-
     return await this.client.channels.fetch(channelId);
-
   }
 
   public async sendDiscordMessage(channelId: string, payload: any) {
-
     try {
       logger.info('GENERATING EMBED');
       const components = new MessageActionRow()
@@ -85,10 +76,9 @@ class DiscordService {
 
       let { sentences, title } = this.sentenceBuilder(payload,components);
 
-      if (!sentences.length)
-        return;
+      if (!sentences.length) return;
 
-      logger.info(`GENERATED SENTENCE ${JSON.stringify(sentences)}`);
+      this.logger.log(`GENERATED SENTENCE ${JSON.stringify(sentences)}`);
 
       const text = sentences[0];
       sentences[0] = ':bell: ' + text;
@@ -107,17 +97,16 @@ class DiscordService {
         if (payload.post?.shortContent) {
           let parsed = blockUtils.parseHtml(utils.transformMentions(payload.post.shortContent, `https://${payload.network.domain}/member/`));
 
-          logger.info(`REFORMATTING ON ${JSON.stringify(parsed)}`);
+          this.logger.log(`REFORMATTING ON ${JSON.stringify(parsed)}`);
 
           // to remove unwanted lines
           const filteredSentences = [];
           const dataLines = parsed.split('\n');
           for (let lines = 0; lines < dataLines.length; lines++) {
+            if (dataLines[lines].startsWith('![]')) continue; // skipping images
 
-            if (dataLines[lines].startsWith('![]'))
-              continue; // skipping images
-
-            if (dataLines[lines].startsWith('>'))// remove quote
+            if (dataLines[lines].startsWith('>'))
+              // remove quote
               dataLines[lines] = dataLines[lines].replace('> ', '');
 
             filteredSentences.push(dataLines[lines]);
@@ -134,7 +123,6 @@ class DiscordService {
           sentences = this.addEmbeds(payload, sentences);
 
           sentences = this.addAttachments(payload, sentences);
-
         }
       }
 
@@ -155,9 +143,7 @@ class DiscordService {
       await this.client.channels.cache.get(channelId).send(toSendObject);
 
     } catch (e) {
-
-      logger.error(e);
-
+      this.logger.error(e);
     }
   }
 
@@ -165,7 +151,7 @@ class DiscordService {
 
     const sentences: string[] = [];
     let title = '';
-    logger.info(`EVENT ON ${payload.event}`);
+    this.logger.log(`EVENT ON ${payload.event}`);
 
     switch (payload.event) {
       case 'post.published':
@@ -210,7 +196,7 @@ class DiscordService {
             sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined ${blockUtils.createEntityHyperLink(payload.space)}`);
           }
         } else {
-          title = `${getEntityName(payload.actor)} added ${getEntityName(payload.member)} to ${getEntityName(payload.space)}`,
+          (title = `${getEntityName(payload.actor)} added ${getEntityName(payload.member)} to ${getEntityName(payload.space)}`),
             sentences.push(
               `${blockUtils.createEntityHyperLink(payload.actor)} added ${blockUtils.createEntityHyperLink(
                 payload.member,
@@ -223,13 +209,13 @@ class DiscordService {
           title = `${getEntityName(payload?.member)} left ${getEntityName(payload?.space)}`;
           sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} left ${blockUtils.createEntityHyperLink(payload.space)}`);
         } else {
-          if(!this.isDeleted(payload)){
+          if (!this.isDeleted(payload)) {
             title = `${getEntityName(payload.actor)} removed ${getEntityName(payload.member)} from ${getEntityName(payload.space)}`;
             sentences.push(
               `${blockUtils.createEntityHyperLink(payload.actor)} removed ${blockUtils.createEntityHyperLink(
                 payload.member,
               )} from ${blockUtils.createEntityHyperLink(payload.space)}`,
-            );            
+            );
           }
         }
         break;
@@ -255,7 +241,6 @@ class DiscordService {
   }
 
   private addImages(payload, sentences) {
-
     for (let i = 0; i < payload.post.imageIds.length; i++)
       sentences.push(`:camera:  [Image content](${IMAGE_SERVICE_URL}/${payload.post.imageIds[i]})`);
 
@@ -263,7 +248,6 @@ class DiscordService {
   }
 
   private addAttachments(payload, sentences) {
-
     if (payload.post.attachments.length > 0) {
       for (let i = 0; i < payload.post.attachments.length; i++) {
         const attachment = payload.post.attachments[i];
@@ -272,11 +256,9 @@ class DiscordService {
     }
 
     return sentences;
-
   }
 
   private addEmbeds(payload, sentences) {
-
     if (payload.post?.embeds) {
       for (let embedId = 0; embedId < payload.post.embeds.length; embedId++) {
         const embed = payload.post.embeds[embedId];
@@ -290,12 +272,11 @@ class DiscordService {
             break;
         }
         const type = embed.type.charAt(0).toUpperCase() + embed.type.slice(1);
-        const title = blockUtils.escapeText((embed.title) ? embed.title : `${type} Content`);
+        const title = blockUtils.escapeText(embed.title ? embed.title : `${type} Content`);
         sentences.push(`${emoji} [${title}](${encodeURI(embed.url)})`);
       }
     }
     return sentences;
-
   }
 
   private isRecentlyJoined(payload) {

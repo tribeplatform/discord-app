@@ -2,13 +2,13 @@ import { DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SERVER_URL } from '@config';
 
 import passport from 'passport';
 import express from 'express';
-import { logger } from '@/utils/logger';
+import { createLogger } from '@/utils/logger';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 import { VerifyCallback } from 'passport-oauth2';
 import { IncomingProfile } from '@/interfaces/incoming-profile.interface';
 import DiscordRepository from '@/repositories/discord.repository';
 import discordService from '@/services/discord.service';
-
+const logger = createLogger('PassportMiddleware')
 const init = (app: express.Application) => {
 
 

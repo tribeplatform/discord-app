@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 
 import { Types } from '@tribeplatform/gql-client';
-import { logger } from '@/utils/logger';
+import { createLogger, logger } from '@/utils/logger';
 import incomingProfileModel from '@/models/profile.model';
 import { uniq, toMap } from '@utils/util';
 import { getTribeClient, listMemberByIds } from '@/utils/tribe_client';
@@ -13,6 +13,7 @@ import profileModel from '@/models/profile.model';
 import { Payload } from '@/type/payload.type';
 import { UpdateAction } from '@/enums/update-action.enum';
 import { WebhookResponse } from '@/dto/webhook-response.dto';
+import { Logger } from '@tribeplatform/node-logger';
 
 const DEFAULT_SETTINGS = {
   webhooks: [],
@@ -21,6 +22,10 @@ const DEFAULT_SETTINGS = {
 };
 
 class WebhookController {
+  private readonly logger: Logger
+  constructor() {
+    this.logger = createLogger(WebhookController.name)
+  }
   public index = async (req: Request, res: Response, next: NextFunction): Promise<WebhookResponse | any> => {
     const input = req.body;
 
@@ -40,6 +45,8 @@ class WebhookController {
         data: {},
       };
 
+      this.logger.log(`Incoming webhook ${JSON.stringify(input)}`)
+
       switch (input.type) {
         case 'GET_SETTINGS':
           result = await this.getSettings(input);
@@ -56,7 +63,7 @@ class WebhookController {
       }
       res.status(200).json(result);
     } catch (error) {
-      logger.error(error);
+      this.logger.error(error);
       return {
         type: input.type,
         status: 'FAILED',
@@ -72,18 +79,17 @@ class WebhookController {
    * TODO: Elaborate on this function
    */
   private async getSettings(input): Promise<WebhookResponse> {
-
     const { networkId } = input;
 
     const currentSettings = input.currentSettings[0]?.settings || {};
     let defaultSettings;
 
-    const webhooks = await incomingProfileModel.find({
-      networkId,
-    })
+    const webhooks = await incomingProfileModel
+      .find({
+        networkId,
+      })
       .select('_id spaceIds memberId channelId channelName')
       .lean();
-
 
     switch (input.context) {
       case Types.PermissionContext.NETWORK:
@@ -144,7 +150,6 @@ class WebhookController {
    * TODO: Elaborate on this function
    */
   private async updateSettings(input): Promise<WebhookResponse> {
-
     const { networkId } = input;
     const action: UpdateAction = input?.data?.settings?.action;
     const payload: any = input?.data?.settings?.payload;
@@ -189,20 +194,20 @@ class WebhookController {
    * TODO: Elaborate on this function
    */
   private async handleSubscription(input): Promise<WebhookResponse> {
-
     const { networkId } = input as { networkId: string };
-    const webhooks: IncomingProfile[] = await incomingProfileModel.find({
-      networkId,
-    }).lean();
+    const webhooks: IncomingProfile[] = await incomingProfileModel
+      .find({
+        networkId,
+      })
+      .lean();
 
     const { object } = input?.data as { object: any; networkId: string };
     const spaceId = object?.spaceId;
-    const webhookUrls = webhooks
-      .filter(webhook => {
-        if (spaceId) return !webhook.spaceIds.length || webhook.spaceIds.indexOf(spaceId) !== -1;
-        if (!spaceId && webhook.spaceIds.length) return false;
-        return webhook;
-      });
+    const webhookUrls = webhooks.filter(webhook => {
+      if (spaceId) return !webhook.spaceIds.length || webhook.spaceIds.indexOf(spaceId) !== -1;
+      if (!spaceId && webhook.spaceIds.length) return false;
+      return webhook;
+    });
 
     if (webhookUrls.length) {
       const tribeClient = await getTribeClient({ networkId });
@@ -296,9 +301,11 @@ class WebhookController {
    */
   private async uninstall(input): Promise<WebhookResponse> {
     const { networkId } = input as { networkId: string };
-    await profileModel.deleteMany({
-      networkId,
-    }).lean();
+    await profileModel
+      .deleteMany({
+        networkId,
+      })
+      .lean();
     return {
       type: input.type,
       status: 'SUCCEEDED',

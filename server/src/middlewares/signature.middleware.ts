@@ -14,7 +14,7 @@ const signatureMiddleware = (req: Request, res: Response, next: NextFunction) =>
       return next();
     }
   } catch (err) {
-      logger.error(err)
+      logger.error(err, { context: 'SignatureMiddleware'})
   }
   return next(new HttpException(403, 'The x-tribe-signature is not valid.'));
 };

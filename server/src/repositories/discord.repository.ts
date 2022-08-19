@@ -10,10 +10,7 @@ class DiscordRepository{
             return await IncomingProfileModel.create(data)
 
         }catch(e){
-
-            console.error(e);
-            logger.error(e);
-
+            logger.error(e, { context: 'DiscordRepository'});
         }
 
     }
