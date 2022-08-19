@@ -46,7 +46,7 @@ const init = (app: express.Application) => {
 
           await discordService.sendWelcomeMessage(incomingProfile.channelId);
 
-          logger.info(`REGISTER A NEW USER ${JSON.stringify(incomingProfile)}`)
+          logger.log(`REGISTER A NEW USER ${JSON.stringify(incomingProfile)}`)
 
           const data = await DiscordRepository.insertProfileData(incomingProfile);
 

@@ -48,7 +48,7 @@ class DiscordService {
 
   public async sendDiscordMessage(channelId: string, payload: any) {
     try {
-      logger.info('GENERATING EMBED');
+      this.logger.log('GENERATING EMBED');
       const components = new MessageActionRow()
       const dataToSend = new MessageEmbed()
         .setColor('#0099ff')
@@ -128,7 +128,7 @@ class DiscordService {
 
       dataToSend.setDescription(sentences.join('\n\n'));
 
-      logger.info('FETCHING CHANNEL NAME');
+      this.logger.log('FETCHING CHANNEL NAME');
 
     
       const toSendObject = {
