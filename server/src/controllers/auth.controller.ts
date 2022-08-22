@@ -50,7 +50,7 @@ class AuthController {
     try {
       const message = "The request has been canceled by the requestor"
       const code = -1
-      res.redirect(`${req.query.community_url}error=true&message=${encodeURIComponent(message)}&code=${code}`)
+      res.redirect(`${req.query.community_url}?error=true&message=${encodeURIComponent(message)}&code=${code}`)
     } catch (error) {
       next(error);
     }
