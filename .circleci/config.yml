@@ -8,16 +8,13 @@ jobs:
   build:
     working_directory: /app
     # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
-    docker:
-      - image: docker:17.05.0-ce-git
     environment:
       DOCKER_REGISTERY: tribeplatform/discord
     # Add steps to the job
     # See: https://circleci.com/docs/2.0/configuration-reference/#steps
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - run:
           name: 'Build application Docker image'
           command: docker build --cache-from=app -t app .
