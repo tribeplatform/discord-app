@@ -1,4 +1,5 @@
 export enum UpdateAction {
   'DELETE_WEBHOOK' = 'DELETE_WEBHOOK',
   'UPDATE_WEBHOOK' = 'UPDATE_WEBHOOK',
+  'GET_CONNECT_URL' = 'GET_CONNECT_URL',
 }

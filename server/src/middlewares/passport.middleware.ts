@@ -8,6 +8,7 @@ import { VerifyCallback } from 'passport-oauth2';
 import { IncomingProfile } from '@/interfaces/incoming-profile.interface';
 import DiscordRepository from '@/repositories/discord.repository';
 import discordService from '@/services/discord.service';
+import { verifyOAuthState } from '@/utils/auth';
 const logger = createLogger('PassportMiddleware')
 const init = (app: express.Application) => {
 
@@ -26,12 +27,11 @@ const init = (app: express.Application) => {
 
           const incomingProfile: IncomingProfile = profile;
 
-          let buff = Buffer.from(String(req.query.state), 'base64');
-          const {
-            n: networkId,
-            m: memberId,
-            s: spaceIds,
-          } = JSON.parse(buff.toString('ascii')) as { n: string; m: string; s: string };
+          const state = verifyOAuthState(req.query.state);
+          if (!state) {
+            return done(new Error('Invalid or expired OAuth state'), false);
+          }
+          const { networkId, memberId, spaceIds } = state;
 
           const channelInfo = await discordService.getChannelInfo(params?.webhook?.channel_id);
 
@@ -46,7 +46,7 @@ const init = (app: express.Application) => {
 
           await discordService.sendWelcomeMessage(incomingProfile.channelId);
 
-          logger.log(`REGISTER A NEW USER ${JSON.stringify(incomingProfile)}`)
+          logger.log(`Registering a new Discord connection networkId=${networkId} channelId=${incomingProfile.channelId} webhookId=${incomingProfile.webhookId}`);
 
           const data = await DiscordRepository.insertProfileData(incomingProfile);
 

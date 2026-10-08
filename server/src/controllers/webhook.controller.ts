@@ -5,7 +5,7 @@ import { createLogger, logger } from '@/utils/logger';
 import incomingProfileModel from '@/models/profile.model';
 import { uniq, toMap } from '@utils/util';
 import { getTribeClient, listMemberByIds } from '@/utils/tribe_client';
-import auth from '@/utils/auth';
+import { getNetworkHostnames, resolveRedirect, signConnectToken } from '@/utils/auth';
 import { SERVER_URL } from '@/config';
 import { IncomingProfile } from '@/interfaces/incoming-profile.interface';
 import discordService from '@services/discord.service';
@@ -15,11 +15,15 @@ import { UpdateAction } from '@/enums/update-action.enum';
 import { WebhookResponse } from '@/dto/webhook-response.dto';
 import { Logger } from '@tribeplatform/node-logger';
 
+const AUTH_URL = `${SERVER_URL}/api/discord/webhook/auth`;
+
 const DEFAULT_SETTINGS = {
   webhooks: [],
-  jwt: null,
-  authUrl: `${SERVER_URL}/api/discord/webhook/auth`,
+  authUrl: AUTH_URL,
 };
+
+// Credentials must never be part of GET_SETTINGS: its output is readable by any member and guest of the community.
+const SECRET_SETTING_KEYS = ['jwt', 'connectUrl'];
 
 class WebhookController {
   private readonly logger: Logger
@@ -45,7 +49,7 @@ class WebhookController {
         data: {},
       };
 
-      this.logger.log(`Incoming webhook ${JSON.stringify(input)}`)
+      this.logger.log(`Incoming webhook type=${input?.type} networkId=${input?.networkId} event=${input?.data?.name || ''}`);
 
       switch (input.type) {
         case 'GET_SETTINGS':
@@ -132,9 +136,9 @@ class WebhookController {
           delete webhook._id;
           return webhook;
         }),
-        jwt: auth.sign({ networkId }),
       },
     };
+    for (const key of SECRET_SETTING_KEYS) delete settings[key];
 
     return {
       type: input.type,
@@ -155,6 +159,8 @@ class WebhookController {
     const payload: any = input?.data?.settings?.payload;
 
     switch (action) {
+      case UpdateAction.GET_CONNECT_URL:
+        return this.getConnectUrl(input);
       case 'DELETE_WEBHOOK':
       case 'UPDATE_WEBHOOK':
         const _id = payload?.id;
@@ -178,12 +184,53 @@ class WebhookController {
         break;
     }
 
-    const settings = this.getSettings(input);
-
+    // Nothing is returned in `data.toStore`, so Bettermode does not persist anything for these actions.
     return {
       type: input.type,
       status: 'SUCCEEDED',
-      data: settings,
+      data: {},
+    };
+  }
+
+  /**
+   * Issues a short-lived URL that starts the Discord OAuth flow for the network.
+   * UPDATE_SETTINGS is only callable by network admins and its `data` (outside `toStore`) is returned to the caller only.
+   */
+  private async getConnectUrl(input): Promise<WebhookResponse> {
+    const { networkId } = input;
+    const payload = input?.data?.settings?.payload || {};
+    if (typeof payload.memberId !== 'string' || !payload.memberId.length) {
+      return {
+        type: input.type,
+        status: 'FAILED',
+        errorMessage: '"memberId" is required to connect a Discord channel.',
+        data: {},
+      };
+    }
+    const spaceIds = Array.isArray(payload.spaceIds)
+      ? payload.spaceIds.filter(id => typeof id === 'string' && id.length).join(',')
+      : typeof payload.spaceIds === 'string'
+      ? payload.spaceIds
+      : undefined;
+    let hostnames: string[] = [];
+    try {
+      const tribeClient = await getTribeClient({ networkId });
+      hostnames = getNetworkHostnames(await tribeClient.network.get('basic'));
+    } catch (err) {
+      this.logger.error(`Unable to load the network domains for networkId=${networkId}`);
+    }
+    const token = signConnectToken({
+      networkId,
+      memberId: payload.memberId,
+      spaceIds: spaceIds || undefined,
+      redirect: resolveRedirect(payload.redirect, hostnames),
+    });
+    return {
+      type: input.type,
+      status: 'SUCCEEDED',
+      data: {
+        connectUrl: `${AUTH_URL}?jwt=${encodeURIComponent(token)}`,
+      },
     };
   }
 
