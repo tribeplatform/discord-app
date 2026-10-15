@@ -190,7 +190,8 @@ class DiscordService {
         }
         break;
       case 'space_membership.created':
-        if (payload?.member?.id === payload?.actor?.id) {
+        // No actor means nobody added the member (they joined, or were added automatically).
+        if (!payload?.actor || payload?.member?.id === payload?.actor?.id) {
           if (!this.isRecentlyJoined(payload)) {
             title = `${getEntityName(payload.member)} joined ${getEntityName(payload.space)}`;
             sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} joined ${blockUtils.createEntityHyperLink(payload.space)}`);
@@ -205,7 +206,8 @@ class DiscordService {
         }
         break;
       case 'space_membership.deleted':
-        if (payload?.member?.id === payload?.actor?.id) {
+        // No actor means nobody removed the member, so treat it as leaving.
+        if (!payload?.actor || payload?.member?.id === payload?.actor?.id) {
           title = `${getEntityName(payload?.member)} left ${getEntityName(payload?.space)}`;
           sentences.push(`${blockUtils.createEntityHyperLink(payload.member)} left ${blockUtils.createEntityHyperLink(payload.space)}`);
         } else {

@@ -6,10 +6,16 @@ export const createHyperlink = ({
                                   text,
                                   url,
                                 }: { text: string; url: string }): string => `[${(text)}](${url})`;
-export const createEntityHyperLink = (entity: Types.Member | Types.Space) => createHyperlink({
-  text: entity.name,
-  url: entity.url,
-});
+// Events can arrive without a member, actor or space (for example automatic space joins
+// have no actor). Fall back to plain text instead of throwing, so the message still sends.
+export const createEntityHyperLink = (entity?: Types.Member | Types.Space) => {
+  if (!entity?.name) return '';
+  if (!entity.url) return entity.name;
+  return createHyperlink({
+    text: entity.name,
+    url: entity.url,
+  });
+};
 
 export const createQuote = (text: string) => `> ${text}`;
 
