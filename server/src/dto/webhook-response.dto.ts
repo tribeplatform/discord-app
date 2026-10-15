@@ -1,5 +1,6 @@
 export type WebhookResponse = {
-  type: any,
-  status: 'SUCCEEDED' | 'FAILED',
-  data: any
-}
+  type: any;
+  status: 'SUCCEEDED' | 'FAILED';
+  data: any;
+  errorMessage?: string;
+};
