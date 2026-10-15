@@ -30,13 +30,18 @@ jest.mock('@/utils/tribe_client', () => ({
   listMemberByIds: jest.fn(async () => []),
 }));
 
+import { memberGQLFields, postGQLFields, spaceGQLFields } from '@tribeplatform/gql-client';
 import profileModel from '@/models/profile.model';
 import { getTribeClient } from '@/utils/tribe_client';
-import WebhookController from '@/controllers/webhook.controller';
+import discordService from '@/services/discord.service';
+import WebhookController, { MEMBER_FIELDS, POST_FIELDS, SPACE_FIELDS } from '@/controllers/webhook.controller';
 import { verifyConnectToken } from '@/utils/auth';
 
 const mockedModel = profileModel as unknown as Record<string, jest.Mock>;
 const mockedGetTribeClient = getTribeClient as jest.Mock;
+const mockedSendDiscordMessage = discordService.sendDiscordMessage as jest.Mock;
+
+const squash = (selection: string) => selection.replace(/\s+/g, ' ');
 
 const storedWebhooks = () => [
   {
@@ -205,6 +210,127 @@ describe('WebhookController', () => {
       expect(mockedModel.findOne).toHaveBeenCalledWith({ networkId: 'net1', _id: 'webhook1' });
       expect(webhook.remove).toHaveBeenCalled();
       expect(result).toEqual({ type: 'UPDATE_SETTINGS', status: 'SUCCEEDED', data: {} });
+    });
+  });
+
+  describe('SUBSCRIPTION', () => {
+    const subscriptionClient = () => ({
+      network: { get: jest.fn(async () => network) },
+      members: { get: jest.fn(async ({ id }) => ({ id, name: `Member ${id}`, url: `https://community.example.com/member/${id}` })) },
+      spaces: { get: jest.fn(async ({ id }) => ({ id, name: 'General', url: 'https://community.example.com/s/general' })) },
+      posts: { get: jest.fn(async ({ id }) => ({ id, title: 'Hello', imageIds: [], embeds: [], attachments: [] })) },
+    });
+
+    it('fetches the post, author and space with narrow field selections', async () => {
+      // Arrange
+      const client = subscriptionClient();
+      mockedGetTribeClient.mockResolvedValue(client);
+      const body = {
+        type: 'SUBSCRIPTION',
+        networkId: 'net1',
+        data: { name: 'post.published', object: { id: 'post1', createdById: 'member1', spaceId: 'space1' } },
+      };
+
+      // Act
+      const result = await call(controller, body);
+
+      // Assert
+      expect(result.status).toEqual('SUCCEEDED');
+      expect(client.posts.get).toHaveBeenCalledWith({ id: 'post1' }, POST_FIELDS);
+      expect(client.spaces.get).toHaveBeenCalledWith({ id: 'space1' }, SPACE_FIELDS);
+      expect(client.members.get).toHaveBeenCalledWith({ id: 'member1' }, MEMBER_FIELDS);
+      expect(client.members.get).toHaveBeenCalledTimes(2);
+      expect(mockedSendDiscordMessage).toHaveBeenCalledWith(
+        'C1',
+        expect.objectContaining({
+          event: 'post.published',
+          post: expect.objectContaining({ id: 'post1' }),
+          member: expect.objectContaining({ id: 'member1' }),
+          actor: expect.objectContaining({ id: 'member1' }),
+          space: expect.objectContaining({ id: 'space1' }),
+        }),
+      );
+    });
+
+    it('fetches the member, actor and space of a space join with narrow field selections', async () => {
+      // Arrange
+      const client = subscriptionClient();
+      mockedGetTribeClient.mockResolvedValue(client);
+      const body = {
+        type: 'SUBSCRIPTION',
+        networkId: 'net1',
+        data: { name: 'space_membership.created', actor: { id: 'admin1' }, object: { memberId: 'member1', spaceId: 'space1' } },
+      };
+
+      // Act
+      await call(controller, body);
+
+      // Assert
+      expect(client.members.get.mock.calls).toEqual([
+        [{ id: 'member1' }, MEMBER_FIELDS],
+        [{ id: 'admin1' }, MEMBER_FIELDS],
+      ]);
+      expect(client.spaces.get).toHaveBeenCalledWith({ id: 'space1' }, SPACE_FIELDS);
+      expect(client.posts.get).not.toHaveBeenCalled();
+    });
+
+    it('never requests a broad preset', async () => {
+      // Arrange
+      const client = subscriptionClient();
+      mockedGetTribeClient.mockResolvedValue(client);
+      const body = {
+        type: 'SUBSCRIPTION',
+        networkId: 'net1',
+        data: { name: 'moderation.rejected', object: { entityType: 'POST', entityId: 'post1', spaceId: 'space1', moderatorId: 'admin1' } },
+      };
+
+      // Act
+      await call(controller, body);
+
+      // Assert
+      const presets = ['basic', 'all', 'default'];
+      for (const get of [client.members.get, client.spaces.get, client.posts.get] as jest.Mock[]) {
+        expect(get).toHaveBeenCalled();
+        for (const [, fields] of get.mock.calls) expect(presets).not.toContain(fields);
+      }
+    });
+
+    it('requests the member fields the Discord message shows and nothing heavier', () => {
+      // Act
+      const selection = squash(memberGQLFields(MEMBER_FIELDS));
+
+      // Assert
+      for (const field of [' id ', ' name ', ' url ', ' createdAt ', 'profilePicture {']) expect(selection).toContain(field);
+      for (const field of ['sessions', 'activeSession', 'blockedMembers', 'authMemberProps', 'badges', 'settings', 'score']) {
+        expect(selection).not.toContain(field);
+      }
+    });
+
+    it('requests the space fields the Discord message shows and nothing heavier', () => {
+      // Act
+      const selection = squash(spaceGQLFields(SPACE_FIELDS));
+
+      // Assert
+      for (const field of [' id ', ' name ', ' url ', 'banner {']) expect(selection).toContain(field);
+      for (const field of ['slate {', 'createdBy {', 'authMemberProps', 'seoDetail {', 'highlightedTags', 'collection {']) {
+        expect(selection).not.toContain(field);
+      }
+    });
+
+    it('requests the post fields the Discord message shows and nothing heavier', () => {
+      // Act
+      const selection = squash(postGQLFields(POST_FIELDS));
+
+      // Assert
+      for (const field of [' title ', ' url ', ' shortContent ', ' imageIds ', ' repliedToId ', 'embeds {', 'attachments {', 'repliedTos {']) {
+        expect(selection).toContain(field);
+      }
+      for (const field of ['owner {', 'createdBy {', 'reactions {', 'replies(', 'mentions {', 'space {', 'repliedTo {', 'authMemberProps']) {
+        expect(selection).not.toContain(field);
+      }
+      const parent = selection.slice(selection.indexOf('repliedTos {'));
+      expect(parent).toContain(' title ');
+      expect(parent).toContain(' repliedToId ');
     });
   });
 

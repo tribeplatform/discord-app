@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 
-import { Types } from '@tribeplatform/gql-client';
+import { MemberFields, PostFields, SpaceFields, Types } from '@tribeplatform/gql-client';
 import { createLogger, logger } from '@/utils/logger';
 import incomingProfileModel from '@/models/profile.model';
 import { uniq, toMap } from '@utils/util';
@@ -21,6 +21,14 @@ const DEFAULT_SETTINGS = {
   webhooks: [],
   authUrl: AUTH_URL,
 };
+
+// Only request what the Discord embeds read; broad presets break when the API drops fields
+// Member: name, url, createdAt (base fields) and the profile picture for the thumbnail
+export const MEMBER_FIELDS: MemberFields = { profilePicture: 'basic' };
+// Space: name, url (base fields) and the banner for the footer icon
+export const SPACE_FIELDS: SpaceFields = { banner: 'basic' };
+// Post: title, url, shortContent, imageIds, repliedToId (base fields), plus embeds, attachments and the parent post title
+export const POST_FIELDS: PostFields = { embeds: 'basic', attachments: 'basic', repliedTos: {} };
 
 // Credentials must never be part of GET_SETTINGS: its output is readable by any member and guest of the community.
 const SECRET_SETTING_KEYS = ['jwt', 'connectUrl'];
@@ -316,19 +324,19 @@ class WebhookController {
           break;
       }
       if (memberId) {
-        const member = await tribeClient.members.get({ id: memberId }, 'all');
+        const member = await tribeClient.members.get({ id: memberId }, MEMBER_FIELDS);
         payload.member = member;
       }
       if (spaceId) {
-        const space = await tribeClient.spaces.get({ id: spaceId }, 'all');
+        const space = await tribeClient.spaces.get({ id: spaceId }, SPACE_FIELDS);
         payload.space = space;
       }
       if (actorId) {
-        const actor = await tribeClient.members.get({ id: actorId }, 'all');
+        const actor = await tribeClient.members.get({ id: actorId }, MEMBER_FIELDS);
         payload.actor = actor;
       }
       if (postId) {
-        const post = await tribeClient.posts.get({ id: postId }, 'all');
+        const post = await tribeClient.posts.get({ id: postId }, POST_FIELDS);
         payload.post = post;
       }
       webhookUrls.forEach(({ channelId }) => discordService.sendDiscordMessage(channelId, payload));
