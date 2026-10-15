@@ -258,7 +258,8 @@ class WebhookController {
 
     if (webhookUrls.length) {
       const tribeClient = await getTribeClient({ networkId });
-      const network = await tribeClient.network.get('all');
+      // Only request what the Discord embeds use (name, domain, favicon); broad presets break when the API drops fields
+      const network = await tribeClient.network.get({ favicon: 'basic' });
       const payload: Payload = {
         event: input?.data?.name,
         network,
