@@ -16,3 +16,13 @@ jest.config.js
 # docker
 Dockerfile
 docker-compose.yml
+
+# never send local deps, build output, git metadata or secrets to the build context
+**/node_modules
+**/dist
+client/build
+.git
+.env
+**/.env
+**/.env.*
+!**/.env.example
