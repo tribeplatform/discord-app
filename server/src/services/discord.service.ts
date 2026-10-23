@@ -125,7 +125,7 @@ export class DiscordService {
 
   public async sendDiscordMessage(channelId: string, payload: any) {
     try {
-      logger.log('GENERATING EMBED');
+      logger.debug('GENERATING EMBED');
       const components = new MessageActionRow()
       const dataToSend = new MessageEmbed()
         .setColor('#0099ff')
@@ -155,7 +155,8 @@ export class DiscordService {
 
       if (!sentences.length) return;
 
-      logger.log(`GENERATED SENTENCE ${JSON.stringify(sentences)}`);
+      // debug only: sentences carry member names and invitee emails
+      logger.debug(`GENERATED SENTENCE ${JSON.stringify(sentences)}`);
 
       const text = sentences[0];
       sentences[0] = ':bell: ' + text;
@@ -174,7 +175,8 @@ export class DiscordService {
         if (payload.post?.shortContent) {
           let parsed = blockUtils.parseHtml(utils.transformMentions(payload.post.shortContent, `https://${payload.network.domain}/member/`));
 
-          logger.log(`REFORMATTING ON ${JSON.stringify(parsed)}`);
+          // debug only: this is the post content
+          logger.debug(`REFORMATTING ON ${JSON.stringify(parsed)}`);
 
           // to remove unwanted lines
           const filteredSentences = [];
@@ -205,7 +207,7 @@ export class DiscordService {
 
       dataToSend.setDescription(sentences.join('\n\n'));
 
-      logger.log('FETCHING CHANNEL NAME');
+      logger.debug('FETCHING CHANNEL NAME');
 
     
       const toSendObject = {
@@ -230,7 +232,7 @@ export class DiscordService {
 
     const sentences: string[] = [];
     let title = '';
-    logger.log(`EVENT ON ${payload.event}`);
+    logger.debug(`EVENT ON ${payload.event}`);
 
     switch (payload.event) {
       case 'post.published':

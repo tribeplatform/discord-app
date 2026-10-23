@@ -172,6 +172,18 @@ describe('DiscordService.sendDiscordMessage', () => {
     expect(mockLogger.warn).toHaveBeenCalledTimes(1);
     expect(mockLogger.error).not.toHaveBeenCalled();
   });
+
+  it('logs the generated message only at debug level', async () => {
+    // Arrange
+    const { client, service } = readyService();
+    client.channels.cache.set('C1', { send: jest.fn(async () => ({})) });
+
+    // Act
+    await service.sendDiscordMessage('C1', { ...payload, member: { ...payload.member, name: 'Ada Lovelace (ada@example.com)' } });
+
+    // Assert
+    expect(JSON.stringify(mockLogger.log.mock.calls)).not.toContain('ada@example.com');
+  });
 });
 
 describe('DiscordService.sendWelcomeMessage', () => {
