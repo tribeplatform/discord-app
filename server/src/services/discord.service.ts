@@ -8,38 +8,115 @@ import * as utils from '@utils/util';
 import { BOT_TOKEN } from '@/config';
 import { DiscordFooter } from '@/type/discord-footer.type';
 import { getEntityName } from '@utils/blockParser';
-import { Logger } from '@tribeplatform/node-logger';
 
 const TITLE_LENGTH_LIMIT = 100;
 const CONTENT_LENGTH_LIMIT = 250;
 const IMAGE_SERVICE_URL = 'https://tribe-s3-production.imgix.net';
 const MAXIMUM_TIME_FOR_DEFAULT_SPACES = 50 * 1000;
 
-class DiscordService {
-  private readonly logger: Logger;
+// Bot login retries back off from 30s to 15min. A rejected token never crashes the process, so the
+// HTTP server (health check, webhooks, OAuth) stays up while the token is fixed.
+export const LOGIN_RETRY_BASE_MS = 30 * 1000;
+export const LOGIN_RETRY_MAX_MS = 15 * 60 * 1000;
+// A channel the bot cannot reach (deleted, or the bot was removed from the server) is not looked up again for an hour.
+export const UNREACHABLE_CHANNEL_TTL_MS = 60 * 60 * 1000;
 
+// One logger for the module: every node-logger instance registers its own process 'uncaughtException' handler.
+const logger = createLogger('DiscordService');
+
+export const getLoginRetryDelay = (attempt: number) => Math.min(LOGIN_RETRY_BASE_MS * 2 ** attempt, LOGIN_RETRY_MAX_MS);
+
+export class DiscordService {
   private client;
   private isAppReady: boolean;
+  private loginTimer: NodeJS.Timeout;
+  private readonly unreachableChannels = new Map<string, number>();
 
-  constructor() {
-    this.logger = createLogger(DiscordService.name);
+  constructor(client?: Client) {
     this.isAppReady = false;
 
-    this.client = new Client({
-      intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
-    });
+    this.client =
+      client ||
+      new Client({
+        intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
+      });
 
-    this.client.login(BOT_TOKEN);
-
-    this.client.once('ready', async () => {
+    this.client.on('ready', () => {
       this.isAppReady = true;
+      logger.log(`Discord bot logged in as ${this.client.user?.tag}`);
     });
+    // Without an 'error' listener an emitted error is thrown and takes the process down.
+    this.client.on('error', err => logger.error(err));
+    this.client.on('shardError', err => logger.warn(`Discord gateway connection error: ${err?.message}`));
+    this.client.on('invalidated', () => {
+      // The session can't be resumed and discord.js has destroyed the client: log in again.
+      this.isAppReady = false;
+      logger.warn('Discord session invalidated, logging in again');
+      this.scheduleLogin(0);
+    });
+
+    this.login();
   }
 
-  public async sendWelcomeMessage(channelId) {
-    await this.client.channels.cache
-      .get(channelId)
-      .send('Hi there, *Community Bot* is here! I would inform you on community updates in this channel.');
+  public get isReady() {
+    return this.isAppReady;
+  }
+
+  public async login(attempt = 0): Promise<void> {
+    try {
+      await this.client.login(BOT_TOKEN);
+    } catch (err) {
+      this.isAppReady = false;
+      const delay = getLoginRetryDelay(attempt);
+      // Never log the token itself; discord.js errors only carry a code such as TOKEN_INVALID.
+      logger.error(`Discord bot login failed (${err?.code || err?.message}), retrying in ${Math.round(delay / 1000)}s`);
+      this.scheduleLogin(delay, attempt + 1);
+    }
+  }
+
+  private scheduleLogin(delay: number, attempt = 0) {
+    if (this.loginTimer) clearTimeout(this.loginTimer);
+    this.loginTimer = setTimeout(() => this.login(attempt), delay);
+    // Don't keep the process (or a test run) alive just for a retry.
+    this.loginTimer.unref?.();
+  }
+
+  /**
+   * Resolves a text channel from the cache, or from the Discord API when it isn't cached.
+   * Returns null (and logs once) when the bot can't reach the channel.
+   */
+  private async getTextChannel(channelId: string) {
+    if (!channelId) return null;
+    if (!this.isAppReady) {
+      logger.warn(`Discord bot is not logged in, skipping channelId=${channelId}`);
+      return null;
+    }
+    const skippedAt = this.unreachableChannels.get(channelId);
+    if (skippedAt && Date.now() - skippedAt < UNREACHABLE_CHANNEL_TTL_MS) return null;
+    try {
+      const channel = this.client.channels.cache.get(channelId) || (await this.client.channels.fetch(channelId));
+      if (channel && typeof channel.send === 'function') {
+        this.unreachableChannels.delete(channelId);
+        return channel;
+      }
+      logger.warn(`Discord channel is not a text channel channelId=${channelId}`);
+    } catch (err) {
+      // 10003 Unknown Channel, 50001 Missing Access: the channel was deleted or the bot was removed from the server.
+      logger.warn(`Discord channel is not reachable channelId=${channelId} code=${err?.code} message=${err?.message}`);
+    }
+    this.unreachableChannels.set(channelId, Date.now());
+    return null;
+  }
+
+  /**
+   * Throws when the bot can't post in the channel, so the OAuth install fails with Discord's error instead of
+   * saving a connection that will never receive messages.
+   */
+  public async sendWelcomeMessage(channelId: string) {
+    const channel = this.client.channels.cache.get(channelId) || (await this.client.channels.fetch(channelId));
+    if (!channel || typeof channel.send !== 'function') throw new Error('The selected Discord channel is not a text channel');
+    this.unreachableChannels.delete(channelId);
+    await channel.send('Hi there, *Community Bot* is here! I would inform you on community updates in this channel.');
   }
 
   public async getChannelInfo(channelId: string) {
@@ -48,7 +125,7 @@ class DiscordService {
 
   public async sendDiscordMessage(channelId: string, payload: any) {
     try {
-      this.logger.log('GENERATING EMBED');
+      logger.log('GENERATING EMBED');
       const components = new MessageActionRow()
       const dataToSend = new MessageEmbed()
         .setColor('#0099ff')
@@ -78,7 +155,7 @@ class DiscordService {
 
       if (!sentences.length) return;
 
-      this.logger.log(`GENERATED SENTENCE ${JSON.stringify(sentences)}`);
+      logger.log(`GENERATED SENTENCE ${JSON.stringify(sentences)}`);
 
       const text = sentences[0];
       sentences[0] = ':bell: ' + text;
@@ -97,7 +174,7 @@ class DiscordService {
         if (payload.post?.shortContent) {
           let parsed = blockUtils.parseHtml(utils.transformMentions(payload.post.shortContent, `https://${payload.network.domain}/member/`));
 
-          this.logger.log(`REFORMATTING ON ${JSON.stringify(parsed)}`);
+          logger.log(`REFORMATTING ON ${JSON.stringify(parsed)}`);
 
           // to remove unwanted lines
           const filteredSentences = [];
@@ -128,7 +205,7 @@ class DiscordService {
 
       dataToSend.setDescription(sentences.join('\n\n'));
 
-      this.logger.log('FETCHING CHANNEL NAME');
+      logger.log('FETCHING CHANNEL NAME');
 
     
       const toSendObject = {
@@ -140,10 +217,12 @@ class DiscordService {
         Object.assign(toSendObject,{components:[components]})
       }
 
-      await this.client.channels.cache.get(channelId).send(toSendObject);
+      const channel = await this.getTextChannel(channelId);
+      if (!channel) return;
+      await channel.send(toSendObject);
 
     } catch (e) {
-      this.logger.error(e);
+      logger.error(e);
     }
   }
 
@@ -151,7 +230,7 @@ class DiscordService {
 
     const sentences: string[] = [];
     let title = '';
-    this.logger.log(`EVENT ON ${payload.event}`);
+    logger.log(`EVENT ON ${payload.event}`);
 
     switch (payload.event) {
       case 'post.published':
