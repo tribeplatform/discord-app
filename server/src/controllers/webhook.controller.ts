@@ -4,7 +4,7 @@ import { MemberFields, PostFields, SpaceFields, Types } from '@tribeplatform/gql
 import { createLogger, logger } from '@/utils/logger';
 import incomingProfileModel from '@/models/profile.model';
 import { uniq, toMap } from '@utils/util';
-import { getTribeClient, listMemberByIds } from '@/utils/tribe_client';
+import { getNetwork, getSpace, getTribeClient, listMemberByIds } from '@/utils/tribe_client';
 import { getNetworkHostnames, resolveRedirect, signConnectToken } from '@/utils/auth';
 import { SERVER_URL } from '@/config';
 import { IncomingProfile } from '@/interfaces/incoming-profile.interface';
@@ -266,8 +266,7 @@ class WebhookController {
 
     if (webhookUrls.length) {
       const tribeClient = await getTribeClient({ networkId });
-      // Only request what the Discord embeds use (name, domain, favicon); broad presets break when the API drops fields
-      const network = await tribeClient.network.get({ favicon: 'basic' });
+      const network = await getNetwork(networkId, tribeClient);
       const payload: Payload = {
         event: input?.data?.name,
         network,
@@ -328,12 +327,12 @@ class WebhookController {
         payload.member = member;
       }
       if (spaceId) {
-        const space = await tribeClient.spaces.get({ id: spaceId }, SPACE_FIELDS);
-        payload.space = space;
+        payload.space = await getSpace(networkId, spaceId, SPACE_FIELDS, tribeClient);
       }
       if (actorId) {
-        const actor = await tribeClient.members.get({ id: actorId }, MEMBER_FIELDS);
-        payload.actor = actor;
+        // post.published (the most common event) has the author as both member and actor; don't fetch it twice.
+        payload.actor =
+          actorId === memberId && payload.member ? payload.member : await tribeClient.members.get({ id: actorId }, MEMBER_FIELDS);
       }
       if (postId) {
         const post = await tribeClient.posts.get({ id: postId }, POST_FIELDS);
