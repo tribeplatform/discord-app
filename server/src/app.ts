@@ -64,6 +64,8 @@ class App {
     this.app.use(express.static(path.join(__dirname, 'public')));
     this.app.use(
       bodyParser.json({
+        // Webhooks carry the full post content; the 100kb default rejected some of them with 413.
+        limit: '5mb',
         verify: (req, res, buf) => {
           if (req.url.includes('/api/webhook')) req['rawBody'] = buf;
         },

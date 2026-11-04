@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 
 import { MemberFields, PostFields, SpaceFields, Types } from '@tribeplatform/gql-client';
-import { createLogger, logger } from '@/utils/logger';
+import { createLogger } from '@/utils/logger';
 import incomingProfileModel from '@/models/profile.model';
 import { uniq, toMap } from '@utils/util';
 import { getTribeClient, listMemberByIds } from '@/utils/tribe_client';
@@ -13,7 +13,6 @@ import profileModel from '@/models/profile.model';
 import { Payload } from '@/type/payload.type';
 import { UpdateAction } from '@/enums/update-action.enum';
 import { WebhookResponse } from '@/dto/webhook-response.dto';
-import { Logger } from '@tribeplatform/node-logger';
 
 const AUTH_URL = `${SERVER_URL}/api/discord/webhook/auth`;
 
@@ -33,11 +32,10 @@ export const POST_FIELDS: PostFields = { embeds: 'basic', attachments: 'basic', 
 // Credentials must never be part of GET_SETTINGS: its output is readable by any member and guest of the community.
 const SECRET_SETTING_KEYS = ['jwt', 'connectUrl'];
 
+// One logger for the module: every node-logger instance registers its own process 'uncaughtException' handler.
+const logger = createLogger('WebhookController');
+
 class WebhookController {
-  private readonly logger: Logger
-  constructor() {
-    this.logger = createLogger(WebhookController.name)
-  }
   public index = async (req: Request, res: Response, next: NextFunction): Promise<WebhookResponse | any> => {
     const input = req.body;
 
@@ -57,7 +55,7 @@ class WebhookController {
         data: {},
       };
 
-      this.logger.log(`Incoming webhook type=${input?.type} networkId=${input?.networkId} event=${input?.data?.name || ''}`);
+      logger.log(`Incoming webhook type=${input?.type} networkId=${input?.networkId} event=${input?.data?.name || ''}`);
 
       switch (input.type) {
         case 'GET_SETTINGS':
@@ -75,12 +73,13 @@ class WebhookController {
       }
       res.status(200).json(result);
     } catch (error) {
-      this.logger.error(error);
-      return {
-        type: input.type,
+      logger.error(error);
+      // Always answer: returning without a response left the request open until Bettermode timed out.
+      return res.status(200).json({
+        type: input?.type,
         status: 'FAILED',
         data: {},
-      };
+      });
     }
   };
 
@@ -225,7 +224,7 @@ class WebhookController {
       const tribeClient = await getTribeClient({ networkId });
       hostnames = getNetworkHostnames(await tribeClient.network.get('basic'));
     } catch (err) {
-      this.logger.error(`Unable to load the network domains for networkId=${networkId}`);
+      logger.error(`Unable to load the network domains for networkId=${networkId}`);
     }
     const token = signConnectToken({
       networkId,
@@ -339,7 +338,8 @@ class WebhookController {
         const post = await tribeClient.posts.get({ id: postId }, POST_FIELDS);
         payload.post = post;
       }
-      webhookUrls.forEach(({ channelId }) => discordService.sendDiscordMessage(channelId, payload));
+      // Not awaited on purpose; never let a Discord failure become an unhandled rejection (which exits the process).
+      webhookUrls.forEach(({ channelId }) => Promise.resolve(discordService.sendDiscordMessage(channelId, payload)).catch(err => logger.error(err)));
     }
 
     return {

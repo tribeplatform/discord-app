@@ -12,7 +12,7 @@ jest.mock('discord.js', () => {
   const actual = jest.requireActual('discord.js');
   return {
     ...actual,
-    Client: jest.fn().mockImplementation(() => ({ login: jest.fn(), once: jest.fn(), channels: { cache: new Map() } })),
+    Client: jest.fn().mockImplementation(() => ({ login: jest.fn(), on: jest.fn(), once: jest.fn(), channels: { cache: new Map() } })),
   };
 });
 

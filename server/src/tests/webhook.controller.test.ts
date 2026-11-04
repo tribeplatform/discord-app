@@ -350,4 +350,38 @@ describe('WebhookController', () => {
     expect(mockLog).toHaveBeenCalled();
     expect(JSON.stringify(mockLog.mock.calls)).not.toContain('do-not-log-me');
   });
+
+  it('responds FAILED instead of leaving the request open when a handler throws', async () => {
+    // Arrange
+    mockedModel.find.mockImplementation(() => {
+      throw new Error('boom');
+    });
+
+    // Act
+    const result = await call(controller, { type: 'GET_SETTINGS', networkId: 'net1', context: 'NETWORK', currentSettings: [] });
+
+    // Assert
+    expect(result).toEqual({ type: 'GET_SETTINGS', status: 'FAILED', data: {} });
+  });
+
+  it('does not let a failing Discord delivery escape as an unhandled rejection', async () => {
+    // Arrange
+    mockedSendDiscordMessage.mockRejectedValueOnce(new Error('Missing Access'));
+    mockedGetTribeClient.mockResolvedValue({
+      network: { get: jest.fn(async () => network) },
+      members: { get: jest.fn(async ({ id }) => ({ id, name: 'Ada' })) },
+    });
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+
+    // Act
+    const result = await call(controller, { type: 'SUBSCRIPTION', networkId: 'net1', data: { name: 'member.verified', object: { id: 'm1' } } });
+    await new Promise(resolve => setImmediate(resolve));
+    process.off('unhandledRejection', unhandled);
+
+    // Assert
+    expect(result).toEqual({ type: 'SUBSCRIPTION', status: 'SUCCEEDED', data: {} });
+    expect(mockedSendDiscordMessage).toHaveBeenCalledWith('C1', expect.anything());
+    expect(unhandled).not.toHaveBeenCalled();
+  });
 });

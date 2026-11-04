@@ -33,23 +33,38 @@ const init = (app: express.Application) => {
           }
           const { networkId, memberId, spaceIds } = state;
 
-          const channelInfo = await discordService.getChannelInfo(params?.webhook?.channel_id);
+          const channelId = params?.webhook?.channel_id;
+          if (!channelId || !params?.webhook?.id) {
+            // Discord finished the flow without creating a channel webhook; send the user to the failure page instead of a 500.
+            logger.warn(`Discord OAuth returned no channel webhook networkId=${networkId}`);
+            return done(null, false);
+          }
+
+          let channelName: string;
+          try {
+            channelName = (await discordService.getChannelInfo(channelId))?.name;
+          } catch (err) {
+            // Only used as a label in the settings; the bot may not see the channel yet.
+            logger.warn(`Unable to load the Discord channel name channelId=${channelId} message=${err?.message}`);
+          }
 
           incomingProfile.refreshToken = refreshToken;
           incomingProfile.networkId = networkId;
           incomingProfile.memberId = memberId;
           incomingProfile.spaceIds = spaceIds?.split(',') || [];
           incomingProfile.webhookId = params?.webhook?.id;
-          incomingProfile.channelId = params?.webhook?.channel_id;
+          incomingProfile.channelId = channelId;
           incomingProfile.token = params?.webhook?.token;
-          incomingProfile.channelName = channelInfo?.name;
+          incomingProfile.channelName = channelName;
 
+          // Also checks that the bot can post there: a Discord error (e.g. 50001 Missing Access for a private channel)
+          // fails the install and is shown to the admin by the error middleware.
           await discordService.sendWelcomeMessage(incomingProfile.channelId);
 
           logger.log(`Registering a new Discord connection networkId=${networkId} channelId=${incomingProfile.channelId} webhookId=${incomingProfile.webhookId}`);
 
           const data = await DiscordRepository.insertProfileData(incomingProfile);
-
+          if (!data) return done(new Error('Unable to save the Discord connection'));
 
           done(null, data);
 
