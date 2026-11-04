@@ -27,6 +27,9 @@ jest.mock('@/models/profile.model', () => ({
 
 jest.mock('@/utils/tribe_client', () => ({
   getTribeClient: jest.fn(),
+  // The caches are covered in tribe_client.test.ts; here they pass straight through to the client.
+  getNetwork: jest.fn(async (networkId: string, client: any) => client.network.get({ favicon: 'basic' })),
+  getSpace: jest.fn(async (networkId: string, spaceId: string, fields: any, client: any) => client.spaces.get({ id: spaceId }, fields)),
   listMemberByIds: jest.fn(async () => []),
 }));
 
@@ -239,7 +242,8 @@ describe('WebhookController', () => {
       expect(client.posts.get).toHaveBeenCalledWith({ id: 'post1' }, POST_FIELDS);
       expect(client.spaces.get).toHaveBeenCalledWith({ id: 'space1' }, SPACE_FIELDS);
       expect(client.members.get).toHaveBeenCalledWith({ id: 'member1' }, MEMBER_FIELDS);
-      expect(client.members.get).toHaveBeenCalledTimes(2);
+      // The author is both member and actor, so it is fetched once.
+      expect(client.members.get).toHaveBeenCalledTimes(1);
       expect(mockedSendDiscordMessage).toHaveBeenCalledWith(
         'C1',
         expect.objectContaining({
